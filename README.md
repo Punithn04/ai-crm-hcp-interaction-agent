@@ -25,7 +25,7 @@ backend/    FastAPI + SQLAlchemy (Postgres/MySQL) + LangGraph agent (Groq)
 - **Backend**: FastAPI exposes REST CRUD for interactions/HCPs/materials, plus a `/api/chat`
   endpoint that drives a LangGraph agent.
 - **AI Agent Framework**: LangGraph `StateGraph` (ReAct-style agent + tool node loop) powered by
-  Groq's `gemma2-9b-it` model via `langchain-groq`.
+  Groq via `langchain-groq`, defaulting to `llama-3.3-70b-versatile` (see LLM note above).
 - **Database**: Postgres (SQLAlchemy models: `HCP`, `Interaction`, `Material`).
 
 ## LangGraph Agent & Tools
@@ -122,9 +122,15 @@ Then open **http://localhost:5173**. The frontend proxies `/api/*` to `http://lo
   attendees/materials/samples via type-ahead, pick sentiment, and click **Log Interaction**.
 - **AI chat** (right): describe the interaction in natural language (e.g. "Met Dr. Priya Sharma,
   discussed OncoBoost Phase III data, she was positive, shared the efficacy deck") and the
-  LangGraph agent extracts structured fields, saves the interaction, and populates the form. You
-  can then follow up with edits ("change the sentiment to neutral") or ask "what did we discuss
-  with Dr. Sharma last time?" to trigger the history/edit/follow-up tools.
+  LangGraph agent extracts structured fields, saves the interaction, and populates the form.
+  From there you can:
+  - Edit it: *"change the sentiment to neutral"*
+  - Ask for history: *"what did we discuss with Dr. Sharma last time?"*
+  - Screen for safety issues: *"a patient on OncoBoost developed severe neutropenia and was
+    hospitalized"* — flags whether pharmacovigilance reporting is required and drafts a
+    notification email for the Drug Safety team (reviewed by the rep, never auto-sent)
+  - Ask for a relationship read: *"how is my relationship with Dr. Sharma trending?"* — the AI
+    reads the HCP's history and returns a sentiment trend, engagement level, and a recommendation
 
 ## Project structure
 
