@@ -13,6 +13,7 @@ body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #f4f6f8;
   color: #1f2937;
+  font-size: 16px;
 }
 
 input,
@@ -20,29 +21,43 @@ textarea,
 select,
 button {
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .app-shell {
-  max-width: 1200px;
-  margin: 24px auto;
-  padding: 0 16px;
+  max-width: 1400px;
+  height: 100vh;
+  height: 100dvh; /* accounts for mobile/desktop browser chrome (URL bar, toolbars) */
+  margin: 0 auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .app-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .screen {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 @media (max-width: 900px) {
+  .app-shell {
+    height: auto;
+    overflow: visible;
+  }
+
   .screen {
     grid-template-columns: 1fr;
   }
@@ -52,25 +67,29 @@ button {
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  padding: 20px;
+  padding: 16px 20px;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .card-title {
   font-weight: 600;
   font-size: 15px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .field {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .field label {
   display: block;
-  font-size: 12px;
-  font-weight: 500;
-  color: #6b7280;
-  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
 }
 
 .field input[type="text"],
@@ -79,10 +98,11 @@ button {
 .field select,
 .field textarea {
   width: 100%;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   background: #fff;
+  font-size: 16px;
 }
 
 .field textarea {
@@ -106,18 +126,25 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 16px;
+  font-weight: 500;
   color: #374151;
   cursor: pointer;
+}
+
+.sentiment-row input[type="radio"] {
+  width: 16px;
+  height: 16px;
 }
 
 .btn {
   border: 1px solid #d1d5db;
   background: #fff;
   border-radius: 6px;
-  padding: 6px 12px;
+  padding: 8px 14px;
   cursor: pointer;
   font-weight: 500;
+  font-size: 15px;
 }
 
 .btn:hover {
@@ -150,8 +177,8 @@ button {
   background: #eef2ff;
   color: #4338ca;
   border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 12px;
+  padding: 4px 12px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -165,9 +192,50 @@ button {
   font-weight: 700;
 }
 
+.adverse-events {
+  margin-top: 12px;
+  padding: 10px 12px;
+  font-size: 15px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #dc2626;
+  border-radius: 6px;
+  color: #991b1b;
+}
+
+.adverse-events ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.adverse-events li {
+  margin-bottom: 3px;
+}
+
+.ae-report {
+  margin-top: 8px;
+}
+
+.ae-report summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.ae-report pre {
+  white-space: pre-wrap;
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 8px;
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  color: #374151;
+}
+
 .suggested-followups {
   margin-top: 10px;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .suggested-followups li {
@@ -179,17 +247,18 @@ button {
 .chat-card {
   display: flex;
   flex-direction: column;
-  height: 640px;
+  height: 100%;
+  overflow: hidden;
 }
 
 .chat-header {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 17px;
   margin-bottom: 4px;
 }
 
 .chat-subheader {
-  font-size: 12px;
+  font-size: 14px;
   color: #6b7280;
   margin-bottom: 12px;
 }
@@ -204,10 +273,10 @@ button {
 }
 
 .chat-bubble {
-  padding: 10px 12px;
+  padding: 11px 14px;
   border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 16px;
+  line-height: 1.5;
   max-width: 90%;
 }
 
@@ -227,13 +296,26 @@ button {
   display: flex;
   gap: 8px;
   margin-top: 12px;
+  flex-shrink: 0;
+  align-items: flex-end;
 }
 
-.chat-input-row input {
+.chat-input-row textarea {
   flex: 1;
-  padding: 8px 10px;
+  min-height: 96px;
+  max-height: 220px;
+  padding: 12px 14px;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.chat-input-row .btn-primary {
+  align-self: flex-end;
+  padding: 10px 16px;
+  font-size: 15px;
 }
 
 .status-banner {

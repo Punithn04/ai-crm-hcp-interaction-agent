@@ -138,6 +138,27 @@ export default function InteractionForm() {
         />
       </div>
 
+      {form.adverseEvents.length > 0 && (
+        <div className="adverse-events">
+          <strong>⚠️ Adverse Event(s) Detected — Pharmacovigilance</strong>
+          <ul>
+            {form.adverseEvents.map((e, idx) => (
+              <li key={idx}>
+                {e.description}
+                {e.drug ? ` (drug: ${e.drug})` : ""}
+                {e.seriousness ? ` — ${e.seriousness}` : ""}
+              </li>
+            ))}
+          </ul>
+          {form.adverseEventReport && (
+            <details className="ae-report">
+              <summary>📧 Drafted pharmacovigilance email (review &amp; send)</summary>
+              <pre>{form.adverseEventReport}</pre>
+            </details>
+          )}
+        </div>
+      )}
+
       {form.suggestedFollowUps.length > 0 && (
         <div className="suggested-followups">
           <strong>AI Suggested Follow-ups:</strong>

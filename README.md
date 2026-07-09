@@ -48,10 +48,18 @@ Five tools (`backend/app/agent/tools/builder.py`):
    to interpret the instruction against the current record and applies only the changed fields.
 3. **`get_hcp_history`** — Looks up an HCP by name and returns their recent interaction history so
    the rep can recall past conversations.
-4. **`suggest_follow_up`** — Regenerates AI-suggested follow-up tasks for a given interaction and
-   attaches them to the record.
-5. **`search_materials`** — Searches the catalog of marketing materials / drug samples available
-   to share with an HCP.
+4. **`detect_adverse_event`** — Scans a logged interaction's notes with the LLM for any patient
+   adverse event / adverse drug reaction (side effects, safety signals, hospitalizations),
+   classifies seriousness, flags whether a 24-hour pharmacovigilance report is required, and stores
+   the structured findings on the interaction (`adverse_events`). Reflects a real regulatory
+   obligation in pharma — adverse events must be captured and reported.
+5. **`analyze_hcp_engagement`** — Reads an HCP's full interaction history and uses the LLM to assess
+   the sentiment trend (warming up / stable / cooling off), overall engagement level, and a
+   recommended next action for the rep — turning raw history into a strategic read.
+
+> Note: `log_interaction` and `edit_interaction` are the two tools mandated by the assignment; the
+> other three are chosen to fit a realistic pharma field-rep workflow. `log_interaction` also
+> auto-generates AI follow-up suggestions (shown as "AI Suggested Follow-ups" on the screen).
 
 ## Running locally
 

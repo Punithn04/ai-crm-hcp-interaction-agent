@@ -36,7 +36,10 @@ class InteractionUpdate(BaseModel):
 
 class InteractionOut(InteractionBase):
     id: uuid.UUID
+    hcp_name: str | None = None
     suggested_follow_ups: list[str] = Field(default_factory=list)
+    adverse_events: list[dict] = Field(default_factory=list)
+    adverse_event_report: str = ""
     source: str
     created_at: datetime
     updated_at: datetime

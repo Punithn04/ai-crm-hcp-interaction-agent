@@ -16,6 +16,8 @@ const initialState = {
   outcomes: "",
   followUpActions: "",
   suggestedFollowUps: [],
+  adverseEvents: [],
+  adverseEventReport: "",
   lastInteractionId: null,
   saveStatus: "idle", // idle | saving | success | error
   saveError: null,
@@ -86,7 +88,15 @@ const formSlice = createSlice({
       if (!i) return;
       state.lastInteractionId = i.id;
       state.hcpId = i.hcp_id;
+      if (i.hcp_name) state.hcpName = i.hcp_name;
       state.interactionType = i.interaction_type;
+      if (i.occurred_at) {
+        // occurred_at is an ISO datetime (e.g. "2026-07-08T14:30:00"); split into the
+        // form's separate date + time inputs.
+        const [datePart, timePart] = i.occurred_at.split("T");
+        if (datePart) state.date = datePart;
+        if (timePart) state.time = timePart.slice(0, 5);
+      }
       state.attendees = i.attendees ?? [];
       state.topicsDiscussed = i.topics_discussed ?? "";
       state.materialsShared = i.materials_shared ?? [];
@@ -95,6 +105,8 @@ const formSlice = createSlice({
       state.outcomes = i.outcomes ?? "";
       state.followUpActions = i.follow_up_actions ?? "";
       state.suggestedFollowUps = i.suggested_follow_ups ?? [];
+      state.adverseEvents = i.adverse_events ?? [];
+      state.adverseEventReport = i.adverse_event_report ?? "";
     },
     resetSaveStatus(state) {
       state.saveStatus = "idle";

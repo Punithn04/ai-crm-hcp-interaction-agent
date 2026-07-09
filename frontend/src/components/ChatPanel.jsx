@@ -40,12 +40,16 @@ export default function ChatPanel() {
       </div>
 
       <div className="chat-input-row">
-        <input
-          type="text"
-          placeholder="Describe interaction..."
+        <textarea
+          placeholder="Describe interaction... (Enter to send, Shift+Enter for a new line)"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
         />
         <button className="btn btn-primary" onClick={handleSend} disabled={pending}>
           Log

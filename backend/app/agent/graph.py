@@ -1,7 +1,7 @@
 import logging
 from typing import Annotated, TypedDict
 
-from groq import BadRequestError
+from groq import BadRequestError, RateLimitError
 from langchain_core.messages import AIMessage, AnyMessage, SystemMessage
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
@@ -16,10 +16,11 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT = """You are the AI assistant embedded in the "Log HCP Interaction" screen of a \
 pharmaceutical CRM, built for field representatives visiting Healthcare Professionals (HCPs).
 
-You help the rep log interactions via natural conversation instead of filling a form by hand, look up
-HCP history, edit previously logged interactions, suggest follow-up actions, and find marketing
-materials or samples to mention. Always use the available tools to perform actions and look up data
-rather than guessing. Be concise and professional, the way a life-science field rep would expect.
+You help the rep: log interactions via natural conversation instead of filling a form by hand, edit
+previously logged interactions, look up an HCP's past interaction history, screen an interaction for
+patient adverse events that need pharmacovigilance reporting, and analyze how an HCP relationship is
+trending. Always use the available tools to perform actions and look up data rather than guessing. Be
+concise and professional, the way a life-science field rep would expect.
 
 IMPORTANT: Call at most ONE tool per user message unless the user explicitly asks for multiple
 separate actions. As soon as a tool result satisfies the user's request (e.g. the interaction was
@@ -41,6 +42,12 @@ def build_agent_graph(db: Session, ctx: dict):
             messages = [SystemMessage(content=SYSTEM_PROMPT), *messages]
         try:
             response = llm_with_tools.invoke(messages)
+        except RateLimitError:
+            logger.exception("Groq rate limit reached")
+            response = AIMessage(
+                content="I've hit the Groq API's rate/usage limit for now. Please wait a few minutes "
+                "and try again."
+            )
         except BadRequestError:
             logger.exception("Groq tool-call generation failed; falling back to a plain text reply")
             response = AIMessage(

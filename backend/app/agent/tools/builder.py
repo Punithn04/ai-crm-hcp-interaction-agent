@@ -4,9 +4,35 @@ from datetime import datetime
 from langchain_core.tools import tool
 from sqlalchemy.orm import Session
 
-from app.agent.extraction import extract_interaction_fields, generate_follow_ups
+from app.agent.extraction import (
+    analyze_engagement,
+    detect_adverse_events,
+    draft_adverse_event_email,
+    extract_interaction_fields,
+    generate_follow_ups,
+)
 from app.services import interactions as interaction_svc
-from app.services import materials as material_svc
+
+
+def _parse_occurred_at(value) -> datetime:
+    """Turn the LLM's extracted date string (YYYY-MM-DD, or full ISO) into a datetime.
+
+    The extractor usually returns a date only, which parses to midnight. In that case we
+    stamp it with the current time-of-day so the logged 'time' reflects when the rep is
+    recording it (rather than always showing 00:00). Falls back to now if unparseable."""
+    now = datetime.now()
+    if not value:
+        return now
+    try:
+        dt = datetime.fromisoformat(str(value))
+    except ValueError:
+        try:
+            dt = datetime.strptime(str(value)[:10], "%Y-%m-%d")
+        except ValueError:
+            return now
+    if dt.hour == 0 and dt.minute == 0 and dt.second == 0:
+        dt = dt.replace(hour=now.hour, minute=now.minute, second=now.second, microsecond=0)
+    return dt
 
 
 def build_tools(db: Session, ctx: dict):
@@ -31,7 +57,7 @@ def build_tools(db: Session, ctx: dict):
         data = {
             "hcp_id": hcp.id,
             "interaction_type": fields.get("interaction_type", "Meeting"),
-            "occurred_at": datetime.utcnow(),
+            "occurred_at": _parse_occurred_at(fields.get("occurred_at")),
             "attendees": [],
             "topics_discussed": fields.get("topics_discussed", ""),
             "materials_shared": fields.get("materials_shared", []) or [],
@@ -51,7 +77,7 @@ def build_tools(db: Session, ctx: dict):
         ctx["hcp_id"] = hcp.id
         return (
             f"Logged {data['interaction_type']} with {hcp.name} (sentiment: {data['sentiment']}). "
-            f"Interaction id: {interaction.id}. Suggested follow-ups: {follow_ups or 'none'}."
+            f"Suggested follow-ups: {follow_ups or 'none'}."
         )
 
     @tool
@@ -69,16 +95,21 @@ def build_tools(db: Session, ctx: dict):
             return f"No interaction found with id {target_id}."
 
         current_summary = (
-            f"interaction_type={existing.interaction_type}, topics_discussed={existing.topics_discussed}, "
+            f"interaction_type={existing.interaction_type}, "
+            f"occurred_at={existing.occurred_at.date().isoformat()}, "
+            f"topics_discussed={existing.topics_discussed}, "
             f"materials_shared={existing.materials_shared}, samples_distributed={existing.samples_distributed}, "
             f"sentiment={existing.sentiment}, outcomes={existing.outcomes}, "
             f"follow_up_actions={existing.follow_up_actions}"
         )
         fields = extract_interaction_fields(f"Current record: {current_summary}\nRequested change: {instruction}")
         update_data = {k: v for k, v in fields.items() if v not in (None, "", [])}
+        if "occurred_at" in update_data:
+            update_data["occurred_at"] = _parse_occurred_at(update_data["occurred_at"])
         updated = interaction_svc.update_interaction(db, target_id, update_data)
         ctx["last_interaction_id"] = updated.id
-        return f"Updated interaction {updated.id}. New sentiment: {updated.sentiment}, outcomes: {updated.outcomes}"
+        hcp_name = updated.hcp.name if updated.hcp else "the HCP"
+        return f"Updated the interaction with {hcp_name}. New sentiment: {updated.sentiment}, outcomes: {updated.outcomes or 'unchanged'}"
 
     @tool
     def get_hcp_history(hcp_name: str, limit: int = 5) -> str:
@@ -98,26 +129,70 @@ def build_tools(db: Session, ctx: dict):
         return f"History for {hcp.name}:\n" + "\n".join(lines)
 
     @tool
-    def suggest_follow_up(interaction_id: str = "last") -> str:
-        """Generate AI-suggested follow-up actions for a logged interaction and attach them to
-        that record. `interaction_id` may be a UUID or "last" for the most recent interaction."""
+    def detect_adverse_event(interaction_id: str = "last") -> str:
+        """Scan a logged interaction's notes for any patient ADVERSE EVENT / adverse drug reaction
+        (side effects, safety concerns, hospitalizations) and flag it for pharmacovigilance reporting.
+        In pharma, adverse events are legally reportable, so run this on any interaction where a patient
+        outcome or safety issue may have been mentioned. When an adverse event is found, this tool also
+        DRAFTS a pharmacovigilance notification email to the Drug Safety team (the draft is saved for the
+        rep to review and send — it is not sent automatically). `interaction_id` may be a UUID or "last"
+        for the most recent interaction in the conversation."""
         target_id = ctx.get("last_interaction_id") if interaction_id == "last" else uuid.UUID(interaction_id)
         if target_id is None:
-            return "No interaction is currently in context."
+            return "No interaction is currently in context. Log one first."
         existing = interaction_svc.get_interaction(db, target_id)
         if existing is None:
             return f"No interaction found with id {target_id}."
-        follow_ups = generate_follow_ups(f"{existing.topics_discussed}\n{existing.outcomes}")
-        interaction_svc.update_interaction(db, target_id, {"suggested_follow_ups": follow_ups})
-        return f"Suggested follow-ups: {follow_ups}"
+
+        result = detect_adverse_events(f"{existing.topics_discussed}\n{existing.outcomes}")
+        events = result.get("adverse_events", []) or []
+
+        if not events:
+            interaction_svc.update_interaction(db, target_id, {"adverse_events": [], "adverse_event_report": ""})
+            return "No adverse events detected. No pharmacovigilance report required for this interaction."
+
+        hcp_name = existing.hcp.name if existing.hcp else "the HCP"
+        email_draft = draft_adverse_event_email(
+            f"HCP: {hcp_name}\nAdverse events: {events}\n"
+            f"Reporting required within 24h: {result.get('reporting_required')}"
+        )
+        interaction_svc.update_interaction(
+            db, target_id, {"adverse_events": events, "adverse_event_report": email_draft}
+        )
+
+        lines = [
+            f"- {e.get('description', 'unspecified')} "
+            f"(drug: {e.get('drug', 'unspecified')}, {e.get('seriousness', 'non-serious')})"
+            for e in events
+        ]
+        flag = (
+            "⚠️ REPORTING REQUIRED: serious adverse event — submit within 24h."
+            if result.get("reporting_required")
+            else "Non-serious; log per standard pharmacovigilance procedure."
+        )
+        return (
+            "Adverse event(s) detected:\n" + "\n".join(lines) + f"\n{flag}\n\n"
+            "I've drafted a pharmacovigilance notification email to the Drug Safety team "
+            "(saved on the interaction for your review — not sent automatically):\n\n" + email_draft
+        )
 
     @tool
-    def search_materials(query: str, kind: str = "material") -> str:
-        """Search the catalog of marketing materials or drug samples available to share with an HCP.
-        `kind` is either "material" (brochures/decks) or "sample" (drug samples)."""
-        results = material_svc.search_materials(db, query, kind=kind)
-        if not results:
-            return f"No {kind}s found matching '{query}'."
-        return ", ".join(r.name for r in results)
+    def analyze_hcp_engagement(hcp_name: str) -> str:
+        """Analyze a named HCP's full interaction history and report their sentiment trend
+        (warming up / stable / cooling off), overall engagement level, and a recommended next action
+        for the field rep. Use when the rep asks how a relationship is trending or how to approach an HCP."""
+        hcp = interaction_svc.find_hcp_by_name(db, hcp_name)
+        if hcp is None:
+            return f"No HCP found matching '{hcp_name}'."
+        history = interaction_svc.list_interactions_for_hcp(db, hcp.id, limit=20)
+        if not history:
+            return f"No interactions logged yet for {hcp.name} to analyze."
 
-    return [log_interaction, edit_interaction, get_hcp_history, suggest_follow_up, search_materials]
+        summary = "\n".join(
+            f"{i.occurred_at:%Y-%m-%d} [{i.interaction_type}] sentiment={i.sentiment}: {i.topics_discussed}"
+            for i in reversed(history)  # oldest -> newest so the trend reads chronologically
+        )
+        ctx["hcp_id"] = hcp.id
+        return analyze_engagement(f"HCP: {hcp.name} (specialty: {hcp.specialty})\nHistory (oldest first):\n{summary}")
+
+    return [log_interaction, edit_interaction, get_hcp_history, detect_adverse_event, analyze_hcp_engagement]

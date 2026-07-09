@@ -26,6 +26,8 @@ class Interaction(Base):
     outcomes = Column(Text, default="")
     follow_up_actions = Column(Text, default="")
     suggested_follow_ups = Column(JSON, default=list)
+    adverse_events = Column(JSON, default=list)  # pharmacovigilance findings from detect_adverse_event
+    adverse_event_report = Column(Text, default="")  # drafted PV notification email (not auto-sent)
 
     source = Column(String, default="form")  # "form" or "chat"
 
@@ -33,3 +35,9 @@ class Interaction(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     hcp = relationship("HCP", back_populates="interactions")
+
+    @property
+    def hcp_name(self) -> str | None:
+        """Convenience for API responses so the frontend can display/select the HCP
+        without a second lookup."""
+        return self.hcp.name if self.hcp else None
