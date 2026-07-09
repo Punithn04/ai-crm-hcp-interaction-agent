@@ -56,12 +56,27 @@ Five tools (`backend/app/agent/tools/builder.py`):
 ## Running locally
 
 ### Prerequisites
-- Python 3.11+
+- Python 3.11+ (tested on 3.13)
 - Node.js 18+
-- A Postgres database (or adjust `DATABASE_URL` for MySQL)
-- A Groq API key from https://console.groq.com
+- A Postgres database (see step 1 below for a one-line Docker option) — or adjust `DATABASE_URL` for MySQL
+- A free Groq API key from https://console.groq.com (Console → API Keys → Create API Key)
 
-### Backend
+### Step 1 — Start Postgres
+
+Easiest option (Docker), which matches the default `DATABASE_URL` exactly:
+
+```bash
+docker run --name hcp-crm-postgres \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=hcp_crm \
+  -p 5432:5432 -d postgres:16
+```
+
+Already created it once? Just start it again with `docker start hcp-crm-postgres`.
+
+Prefer a native install? Create a database named `hcp_crm` and make sure `DATABASE_URL`
+in `.env` matches your username/password/port.
+
+### Step 2 — Backend
 
 ```bash
 cd backend
@@ -70,15 +85,19 @@ venv\Scripts\activate        # Windows
 # source venv/bin/activate   # macOS/Linux
 
 pip install -r requirements.txt
-copy .env.example .env       # then fill in GROQ_API_KEY and DATABASE_URL
+copy .env.example .env       # Windows  (macOS/Linux: cp .env.example .env)
+# then open .env and paste your GROQ_API_KEY
 
 python -m app.seed           # creates tables + sample HCPs/materials
 uvicorn app.main:app --reload --port 8000
 ```
 
-Backend runs at `http://localhost:8000`. Health check: `GET /api/health`.
+Backend runs at `http://localhost:8000`. Health check: open `http://localhost:8000/api/health`
+→ should return `{"status":"ok"}`.
 
-### Frontend
+### Step 3 — Frontend
+
+In a second terminal (leave the backend running):
 
 ```bash
 cd frontend
@@ -86,8 +105,8 @@ npm install
 npm run dev
 ```
 
-Frontend runs at `http://localhost:5173` and proxies `/api/*` to `http://localhost:8000`
-(see `vite.config.js`).
+Then open **http://localhost:5173**. The frontend proxies `/api/*` to `http://localhost:8000`
+(see `vite.config.js`), so both servers must be running together.
 
 ## Using the screen
 
