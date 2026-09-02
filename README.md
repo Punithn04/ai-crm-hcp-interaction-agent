@@ -4,6 +4,8 @@ An AI-first "Log Interaction" screen for pharmaceutical field representatives, b
 Healthcare Professional (HCP) module of a CRM. Reps can log HCP interactions either through a
 **structured form** or a **conversational AI chat interface** backed by a LangGraph agent.
 
+A personal project exploring agentic AI workflows for a realistic pharma field-rep use case.
+
 ## Architecture
 
 ```
@@ -11,14 +13,13 @@ frontend/   React 18 + Redux Toolkit (Vite) — structured form + AI chat panel
 backend/    FastAPI + SQLAlchemy (Postgres/MySQL) + LangGraph agent (Groq)
 ```
 
-> **Note on the LLM**: the assignment specifies `gemma2-9b-it` on Groq, but that model was
-> decommissioned by Groq in October 2025. The assignment also lists `llama-3.3-70b-versatile`
-> as an acceptable alternative, and this project defaults to it (configurable via `GROQ_MODEL`
-> in `.env`). Groq's smaller `llama-3.1-8b-instant` was tried first as the direct Gemma
-> replacement, but it proved unreliable at multi-tool selection (occasionally hallucinating a new
-> interaction when asked to *read* history, or looping on redundant tool calls). The 70B model
-> handles the agent's tool-calling reliably. Swap `GROQ_MODEL` back to `gemma2-9b-it` if that
-> model is ever reinstated on your account.
+> **Note on the LLM**: this project originally targeted `gemma2-9b-it` on Groq, but that model was
+> decommissioned by Groq in October 2025. `llama-3.3-70b-versatile` is used instead as the default
+> (configurable via `GROQ_MODEL` in `.env`). Groq's smaller `llama-3.1-8b-instant` was tried first as
+> the direct Gemma replacement, but it proved unreliable at multi-tool selection (occasionally
+> hallucinating a new interaction when asked to *read* history, or looping on redundant tool calls).
+> The 70B model handles the agent's tool-calling reliably. Swap `GROQ_MODEL` back to `gemma2-9b-it`
+> if that model is ever reinstated on your account.
 
 - **Frontend**: React UI with Redux Toolkit slices for the interaction form and chat state.
   Google Inter font. Calls the FastAPI backend via `/api/*`.
@@ -57,9 +58,9 @@ Five tools (`backend/app/agent/tools/builder.py`):
    the sentiment trend (warming up / stable / cooling off), overall engagement level, and a
    recommended next action for the rep — turning raw history into a strategic read.
 
-> Note: `log_interaction` and `edit_interaction` are the two tools mandated by the assignment; the
-> other three are chosen to fit a realistic pharma field-rep workflow. `log_interaction` also
-> auto-generates AI follow-up suggestions (shown as "AI Suggested Follow-ups" on the screen).
+> Note: `log_interaction` and `edit_interaction` are the two core tools; the other three were added
+> to fit a realistic pharma field-rep workflow. `log_interaction` also auto-generates AI follow-up
+> suggestions (shown as "AI Suggested Follow-ups" on the screen).
 
 ## Running locally
 
